@@ -1,0 +1,1261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Linework - 3D Studio</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, sans-serif; overflow: hidden; background: #ffffff; color: #18181b; }
+    #canvas-container { width: 100vw; height: 100vh; display: block; }
+    
+    /* CAD Navigation & Tools Toolbar (Top-Right) */
+    #nav-toolbar {
+      position: absolute; top: 16px; right: 16px; display: flex; gap: 6px;
+      background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(16px);
+      border: 1px solid rgba(0, 0, 0, 0.12); border-radius: 8px;
+      padding: 6px; box-shadow: 0 8px 24px rgba(0,0,0,0.12); z-index: 100;
+    }
+    .nav-btn {
+      display: flex; align-items: center; gap: 6px; padding: 8px 12px;
+      background: #f4f4f5; color: #3f3f46; border: 1px solid #d4d4d8;
+      border-radius: 6px; font-weight: 600; font-size: 0.78rem; cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .nav-btn:hover { background: #e4e4e7; color: #18181b; }
+    .nav-btn.active { background: #2563eb; color: #ffffff; border-color: #2563eb; }
+
+    #sidebar {
+      position: absolute; top: 16px; left: 16px; width: 370px;
+      background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(16px);
+      border: 1px solid rgba(0, 0, 0, 0.12); border-radius: 12px;
+      padding: 18px; box-shadow: 0 12px 32px rgba(0,0,0,0.12);
+      max-height: calc(100vh - 32px); overflow-y: auto; z-index: 90;
+    }
+    h2 { font-size: 1.2rem; font-weight: 700; color: #09090b; margin-bottom: 2px; }
+    p.subtitle { font-size: 0.78rem; color: #666; margin-bottom: 12px; }
+
+    /* Expandable Information Drawer */
+    details.guide-drawer {
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      margin-bottom: 14px;
+      overflow: hidden;
+    }
+    details.guide-drawer summary {
+      padding: 10px 12px;
+      font-weight: 700;
+      font-size: 0.8rem;
+      color: #1e293b;
+      cursor: pointer;
+      background: #f1f5f9;
+      user-select: none;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: background 0.2s;
+    }
+    details.guide-drawer summary:hover {
+      background: #e2e8f0;
+    }
+    details.guide-drawer summary::-webkit-details-marker {
+      display: none;
+    }
+    details.guide-drawer summary::after {
+      content: "▶";
+      font-size: 0.65rem;
+      color: #64748b;
+      transition: transform 0.2s;
+    }
+    details.guide-drawer[open] summary::after {
+      transform: rotate(90deg);
+    }
+    .guide-content {
+      padding: 12px;
+      color: #334155;
+      font-size: 0.76rem;
+      line-height: 1.45;
+    }
+    .guide-content h3 {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: #0f172a;
+      margin-top: 10px;
+      margin-bottom: 6px;
+      border-bottom: 1px solid #e2e8f0;
+      padding-bottom: 2px;
+    }
+    .guide-content h3:first-child {
+      margin-top: 0;
+    }
+    .guide-content p {
+      margin-bottom: 8px;
+    }
+    .guide-content ul {
+      padding-left: 16px;
+      margin-bottom: 8px;
+    }
+    .guide-content li {
+      margin-bottom: 6px;
+    }
+
+    .group { margin-bottom: 10px; }
+    label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #52525b; display: block; margin-bottom: 3px; }
+    .val-dis { float: right; font-weight: bold; color: #2563eb; }
+    input[type="file"], select { width: 100%; padding: 8px; background: #f4f4f5; border: 1px solid #d4d4d8; border-radius: 6px; color: #18181b; font-size: 0.85rem; }
+    input[type="range"] { width: 100%; margin-top: 2px; accent-color: #2563eb; cursor: pointer; }
+    input[type="color"] { width: 100%; height: 32px; border: 1px solid #d4d4d8; border-radius: 6px; cursor: pointer; background: transparent; }
+    .checkbox-group { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; }
+    .checkbox-group label { font-size: 0.8rem; text-transform: none; color: #27272a; margin: 0; }
+    .btn-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-top: 8px; }
+    
+    button.export-btn {
+      width: 100%; padding: 10px; background: #2563eb; color: white; border: none;
+      border-radius: 6px; font-weight: 600; font-size: 0.8rem; cursor: pointer;
+      transition: background 0.2s;
+    }
+    button.export-btn:hover { background: #1d4ed8; }
+    button.ar-btn { background: #059669; }
+    button.ar-btn:hover { background: #047857; }
+    
+    button.reset-btn {
+      width: 100%; padding: 8px; background: #e2e8f0; color: #334155;
+      border: 1px solid #cbd5e1; border-radius: 6px; font-weight: 600;
+      font-size: 0.78rem; cursor: pointer; transition: background 0.2s;
+      margin-bottom: 12px;
+    }
+    button.reset-btn:hover { background: #cbd5e1; }
+
+    .status-msg { font-size: 0.75rem; color: #2563eb; margin-top: 4px; font-weight: bold; }
+    .divider { height: 1px; background: rgba(0, 0, 0, 0.08); margin: 10px 0; }
+
+    /* Floating Ruler Measurement HUD */
+    #rulerHUD {
+      position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+      background: rgba(15, 23, 42, 0.9); color: #ffffff; padding: 10px 20px;
+      border-radius: 30px; font-weight: 600; font-size: 0.85rem;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.25); z-index: 100; display: none;
+      align-items: center; gap: 12px; backdrop-filter: blur(8px);
+    }
+    #rulerHUD button {
+      background: #ef4444; color: white; border: none; padding: 4px 10px;
+      border-radius: 12px; font-size: 0.75rem; font-weight: 700; cursor: pointer;
+    }
+  </style>
+
+  <!-- Three.js Engine & Exporters -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/GLTFExporter.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/OBJExporter.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/fflate@0.8.2/umd/index.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/USDZExporter.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+</head>
+<body>
+
+  <div id="canvas-container"></div>
+
+  <!-- Top-Right Navigation Toolbar -->
+  <div id="nav-toolbar">
+    <button id="btnOrbit" class="nav-btn active" title="Orbit Mode (Press 'O')">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+      Orbit (O)
+    </button>
+    <button id="btnPan" class="nav-btn" title="Pan Mode (Press 'H')">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 11V6a2 2 0 0 0-4 0v5"/><path d="M14 10V4a2 2 0 0 0-4 0v6"/><path d="M10 10.5V6a2 2 0 0 0-4 0v8"/><path d="M18 8a2 2 0 0 1 2 2v4a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.83l1.76 1.76V14"/></svg>
+      Pan (H)
+    </button>
+    <button id="btnRuler" class="nav-btn" title="Ruler Tool (Click 2 points to measure distance)">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12h20M6 12v-4M10 12v-2M14 12v-4M18 12v-2"/></svg>
+      Ruler
+    </button>
+    <button id="btnResetView" class="nav-btn" title="Reset View to Center">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+      Fit View
+    </button>
+  </div>
+
+  <!-- Floating Measurement Ruler HUD Banner -->
+  <div id="rulerHUD">
+    <span id="rulerStatus">Click Point A to start measuring...</span>
+    <button id="btnClearRuler" onclick="resetRuler()">Clear</button>
+  </div>
+
+  <div id="sidebar">
+    <h2>Linework</h2>
+    <p class="subtitle">Direct MP3 Audio & CSV Fabrication Suite</p>
+
+    <button id="resetBtn" class="reset-btn">Reset Settings to Default</button>
+
+    <!-- Expandable Information Drawer -->
+    <details class="guide-drawer">
+      <summary><span>📖 Information & Controls</span></summary>
+      <div class="guide-content">
+        <p>Linework translates site-specific sound recordings (speeches, atmospheric audio, music) or 3D point data (CSV) into fabricable 3D linear sculptures formatted as continuous pipe runs or timber profiles.</p>
+
+        <h3>Keyboard Shortcuts</h3>
+        <ul>
+          <li><b>O:</b> Switch to <b>Orbit Mode</b> (Left-click & drag to rotate view).</li>
+          <li><b>H:</b> Switch to <b>Pan Mode</b> (Left-click & drag to slide/pan view).</li>
+        </ul>
+
+        <h3>Acoustic Analysis</h3>
+        <p>The program analyzes 1,200 acoustic frames across two key metrics:</p>
+        <ul>
+          <li><b>RMS Energy (Volume):</b> Drives macro loop expansion, swoop depth, and spatial volume.</li>
+          <li><b>Zero Crossing Rate (Frequency/Texture):</b> Modulates helical frequencies, axial twisting, and cursive looping density.</li>
+        </ul>
+
+        <h3>Form Tuning & Smoothing</h3>
+        <ul>
+          <li><b>Coiling Frequency:</b> Defaults to <b>1.5x</b> for balanced, self-contained cursive looping right out of the box.</li>
+          <li><b>Extended Spatial Smoothing:</b> Adjust Gaussian smoothing up to <b>30 passes</b> to eliminate micro-kinks across larger or higher-frequency forms.</li>
+          <li><b>Dynamic Self-Avoidance:</b> Automatically maintains clearance based on outer material diameter while allowing tangential touching.</li>
+          <li><b>Kink Warning:</b> Highlights sections in amber where centerline curvature exceeds material bend limits.</li>
+        </ul>
+      </div>
+    </details>
+
+    <div class="group">
+      <label>1. Input File (MP3, WAV, CSV)</label>
+      <input type="file" id="fileInput" accept=".mp3,.wav,.m4a,.csv">
+      <div id="statusMsg" class="status-msg">Default audio generator active</div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="group">
+      <label>Material Profile</label>
+      <select id="profileType">
+        <option value="corrugated">Corrugated Drainpipe (ADS/HDPE)</option>
+        <option value="round_smooth">Smooth Round Pipe</option>
+        <option value="square">Rectangular Wood Profile</option>
+      </select>
+    </div>
+
+    <div class="group" id="roundSizeGroup">
+      <label>Pipe ID Diameter <span class="val-dis" id="sizeVal">6.0" (7.0" OD)</span></label>
+      <input type="range" id="matSize" min="1.0" max="18.0" step="0.5" value="6.0">
+    </div>
+
+    <div class="group" id="rectSizeGroup" style="display: none;">
+      <label>Cross-Section Width</label>
+      <select id="rectWidth">
+        <option value="1.0">1.0"</option><option value="1.5">1.5"</option><option value="2.0">2.0"</option><option value="2.5">2.5"</option><option value="3.0">3.0"</option><option value="3.5">3.5"</option><option value="4.0">4.0"</option><option value="4.5">4.5"</option><option value="5.0">5.0"</option><option value="5.5">5.5"</option><option value="6.0" selected>6.0"</option><option value="6.5">6.5"</option><option value="7.0">7.0"</option><option value="7.5">7.5"</option><option value="8.0">8.0"</option><option value="8.5">8.5"</option><option value="9.0">9.0"</option><option value="9.5">9.5"</option><option value="10.0">10.0"</option><option value="10.5">10.5"</option><option value="11.0">11.0"</option><option value="11.5">11.5"</option><option value="12.0">12.0"</option>
+      </select>
+      
+      <label style="margin-top: 6px;">Cross-Section Height / Depth</label>
+      <select id="rectHeight">
+        <option value="1.0">1.0"</option><option value="1.5">1.5"</option><option value="2.0">2.0"</option><option value="2.5">2.5"</option><option value="3.0">3.0"</option><option value="3.5">3.5"</option><option value="4.0">4.0"</option><option value="4.5">4.5"</option><option value="5.0">5.0"</option><option value="5.5">5.5"</option><option value="6.0" selected>6.0"</option><option value="6.5">6.5"</option><option value="7.0">7.0"</option><option value="7.5">7.5"</option><option value="8.0">8.0"</option><option value="8.5">8.5"</option><option value="9.0">9.0"</option><option value="9.5">9.5"</option><option value="10.0">10.0"</option><option value="10.5">10.5"</option><option value="11.0">11.0"</option><option value="11.5">11.5"</option><option value="12.0">12.0"</option>
+      </select>
+    </div>
+
+    <!-- Inside Surface & Centerline Bend Radius Readout -->
+    <div class="group">
+      <label>Min Inside Surface Radius <span class="val-dis" id="autoRadVal">9.0" (Centerline: 12.5")</span></label>
+    </div>
+
+    <div class="divider"></div>
+    <label style="color:#2563eb;">3D Sculptural Form Tuning Controls</label>
+
+    <div class="group" style="margin-top: 6px;">
+      <label>Material Length <span class="val-dis" id="archLengthVal">--</span></label>
+      <label style="color:#666; font-size:0.68rem; margin-top:-2px;">Path Density <span class="val-dis" id="lengthVal" style="color:#666;">150 pts</span></label>
+      <input type="range" id="pathLength" min="20" max="300" step="5" value="150">
+    </div>
+
+    <div class="group">
+      <label>Macro Loop Scale <span class="val-dis" id="ampVal">1.00x</span></label>
+      <input type="range" id="ampScale" min="0.2" max="2.5" step="0.05" value="1.00">
+    </div>
+
+    <div class="group">
+      <label>Coiling Frequency <span class="val-dis" id="freqVal">1.5x</span></label>
+      <input type="range" id="freqScale" min="0.3" max="3.0" step="0.1" value="1.5">
+    </div>
+
+    <div class="group">
+      <label>Vertical Swoop Amplitude <span class="val-dis" id="pitchVal">1.0x</span></label>
+      <input type="range" id="pitchScale" min="0.2" max="3.0" step="0.1" value="1.0">
+    </div>
+
+    <div class="group">
+      <label>Axial Twist & Asymmetry <span class="val-dis" id="asymVal">0.70</span></label>
+      <input type="range" id="asymmetry" min="0.0" max="2.0" step="0.05" value="0.70">
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="group">
+      <label>Spatial Smooth (Removes Micro-Kinks) <span class="val-dis" id="smoothVal">5 Passes</span></label>
+      <input type="range" id="smoothAmount" min="0" max="30" step="1" value="5">
+    </div>
+
+    <div class="checkbox-group">
+      <label for="isClosedLoop">Continuous Closed Loop</label>
+      <input type="checkbox" id="isClosedLoop" checked>
+    </div>
+
+    <div id="loopOptionsGroup" style="display: block; margin-left: 6px; padding-left: 10px; border-left: 2px solid #2563eb; margin-top: 6px;">
+      <div class="checkbox-group" id="mobiusGroup" style="display: none;">
+        <label for="isMobius">True Möbius Half-Twist (180°)</label>
+        <input type="checkbox" id="isMobius">
+      </div>
+    </div>
+
+    <div class="checkbox-group">
+      <label for="showKinks">Highlight Kinks in Amber</label>
+      <input type="checkbox" id="showKinks" checked>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="group">
+      <label>Material Color</label>
+      <input type="color" id="matColor" value="#60a5fa">
+    </div>
+
+    <label>2. Export Fabrication Models</label>
+    <div class="btn-grid">
+      <button id="exportGlb" class="export-btn">.GLB</button>
+      <button id="exportObj" class="export-btn">.OBJ</button>
+      <button id="exportUsdz" class="export-btn ar-btn">.USDZ (AR)</button>
+    </div>
+  </div>
+
+  <script>
+    // --- 1. Scene & Navigation Setup ---
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xffffff);
+
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 30, 75);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.shadowMap.enabled = true;
+    container.appendChild(renderer.domElement);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.enablePan = true;
+    controls.screenSpacePanning = true;
+    controls.panSpeed = 1.2;
+    controls.touches = {
+      ONE: THREE.TOUCH.ROTATE,
+      TWO: THREE.TOUCH.DOLLY_PAN
+    };
+
+    let activeNavMode = 'orbit';
+
+    function setNavMode(mode) {
+      activeNavMode = mode;
+      const btnOrbit = document.getElementById('btnOrbit');
+      const btnPan = document.getElementById('btnPan');
+      const btnRuler = document.getElementById('btnRuler');
+
+      btnOrbit.classList.remove('active');
+      btnPan.classList.remove('active');
+      btnRuler.classList.remove('active');
+
+      if (mode === 'orbit') {
+        btnOrbit.classList.add('active');
+        controls.enabled = true;
+        controls.mouseButtons.LEFT = THREE.MOUSE.ROTATE;
+        renderer.domElement.style.cursor = 'grab';
+        document.getElementById('rulerHUD').style.display = 'none';
+      } else if (mode === 'pan') {
+        btnPan.classList.add('active');
+        controls.enabled = true;
+        controls.mouseButtons.LEFT = THREE.MOUSE.PAN;
+        renderer.domElement.style.cursor = 'move';
+        document.getElementById('rulerHUD').style.display = 'none';
+      } else if (mode === 'ruler') {
+        btnRuler.classList.add('active');
+        controls.enabled = true; 
+        controls.mouseButtons.LEFT = THREE.MOUSE.ROTATE;
+        renderer.domElement.style.cursor = 'crosshair';
+        document.getElementById('rulerHUD').style.display = 'flex';
+      }
+    }
+
+    document.getElementById('btnOrbit').addEventListener('click', () => setNavMode('orbit'));
+    document.getElementById('btnPan').addEventListener('click', () => setNavMode('pan'));
+    document.getElementById('btnRuler').addEventListener('click', () => setNavMode('ruler'));
+    document.getElementById('btnResetView').addEventListener('click', () => {
+      camera.position.set(0, 30, 75);
+      controls.target.set(0, 12, 0);
+      controls.update();
+    });
+
+    // Keyboard Shortcuts (O for Orbit, H for Pan)
+    window.addEventListener('keydown', (e) => {
+      if (['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
+      if (e.key === 'o' || e.key === 'O') setNavMode('orbit');
+      if (e.key === 'h' || e.key === 'H') setNavMode('pan');
+    });
+
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
+    scene.add(ambientLight);
+
+    const dLight1 = new THREE.DirectionalLight(0xffffff, 0.8);
+    dLight1.position.set(50, 80, 50);
+    scene.add(dLight1);
+
+    const dLight2 = new THREE.DirectionalLight(0x93c5fd, 0.4);
+    dLight2.position.set(-50, -20, -50);
+    scene.add(dLight2);
+
+    const gridHelper = new THREE.GridHelper(140, 48, 0x94a3b8, 0xe2e8f0);
+    gridHelper.position.y = 0;
+    scene.add(gridHelper);
+
+    let audioFrames = null;
+    let csvPoints = null;
+    let currentMeshGroup = null;
+
+    function formatArchitecturalLength(lengthInFeet) {
+      const totalInches = Math.round(lengthInFeet * 12);
+      const feet = Math.floor(totalInches / 12);
+      const inches = totalInches % 12;
+      return `${feet}' ${inches}"`;
+    }
+
+    // Default synthetic audio generator for immediate load
+    function generateDefaultAudioFrames() {
+      audioFrames = [];
+      for (let i = 0; i < 1200; i++) {
+        audioFrames.push({
+          rms: 0.35 + 0.35 * Math.sin(i * 0.02) + 0.15 * Math.cos(i * 0.05),
+          zcr: 0.4 + 0.3 * Math.cos(i * 0.03)
+        });
+      }
+    }
+    generateDefaultAudioFrames();
+
+    // --- 2. Interactive Ruler Tool Logic ---
+    let rulerPoints = [];
+    const rulerGroup = new THREE.Group();
+    scene.add(rulerGroup);
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+
+    function resetRuler() {
+      rulerPoints = [];
+      rulerGroup.clear();
+      document.getElementById('rulerStatus').innerText = "Click Point A to start measuring...";
+    }
+
+    renderer.domElement.addEventListener('pointerdown', (e) => {
+      if (activeNavMode !== 'ruler') return;
+
+      const rect = renderer.domElement.getBoundingClientRect();
+      mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+      raycaster.setFromCamera(mouse, camera);
+      const targets = [];
+      if (currentMeshGroup) targets.push(...currentMeshGroup.children);
+      targets.push(gridHelper);
+
+      const intersects = raycaster.intersectObjects(targets, true);
+      if (intersects.length > 0) {
+        const hitPt = intersects[0].point.clone();
+
+        if (rulerPoints.length === 0 || rulerPoints.length === 2) {
+          rulerGroup.clear();
+          rulerPoints = [hitPt];
+
+          const markerA = new THREE.Mesh(
+            new THREE.SphereGeometry(0.12, 16, 16),
+            new THREE.MeshBasicMaterial({ color: 0xef4444 })
+          );
+          markerA.position.copy(hitPt);
+          rulerGroup.add(markerA);
+
+          document.getElementById('rulerStatus').innerText = "Point A placed. Click Point B...";
+        } else if (rulerPoints.length === 1) {
+          rulerPoints.push(hitPt);
+
+          const markerB = new THREE.Mesh(
+            new THREE.SphereGeometry(0.12, 16, 16),
+            new THREE.MeshBasicMaterial({ color: 0xef4444 })
+          );
+          markerB.position.copy(hitPt);
+          rulerGroup.add(markerB);
+
+          const lineGeo = new THREE.BufferGeometry().setFromPoints(rulerPoints);
+          const lineMat = new THREE.LineDashedMaterial({
+            color: 0x2563eb,
+            dashSize: 0.5,
+            gapSize: 0.25,
+            linewidth: 3
+          });
+          const dimLine = new THREE.Line(lineGeo, lineMat);
+          dimLine.computeLineDistances();
+          rulerGroup.add(dimLine);
+
+          const distFeet = rulerPoints[0].distanceTo(rulerPoints[1]);
+          const archText = formatArchitecturalLength(distFeet);
+          const totalInches = (distFeet * 12).toFixed(1);
+
+          document.getElementById('rulerStatus').innerHTML = `Measured: <b style="color:#60a5fa">${archText}</b> (${totalInches}")`;
+        }
+      }
+    });
+
+    // --- 3. Audio Spectrum Analysis Engine ---
+    async function processAudioFile(file) {
+      document.getElementById('statusMsg').innerText = "Analyzing audio spectrum...";
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const arrayBuffer = await file.arrayBuffer();
+      const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+
+      // Single mono channel processing eliminates stereo channel split doubling
+      const pcm = audioBuffer.getChannelData(0);
+      const samples = 1200;
+      const chunkSize = Math.floor(pcm.length / samples);
+
+      let maxEnergy = 0.0001;
+      let rawFrames = [];
+
+      for (let i = 0; i < samples; i++) {
+        let start = i * chunkSize;
+        let sumSq = 0;
+        let zeroCross = 0;
+
+        for (let j = 0; j < chunkSize; j += 4) {
+          let val = pcm[start + j] || 0;
+          sumSq += val * val;
+          if (j > 0 && ((val >= 0 && pcm[start + j - 4] < 0) || (val < 0 && pcm[start + j - 4] >= 0))) {
+            zeroCross++;
+          }
+        }
+
+        let rms = Math.sqrt(sumSq / (chunkSize / 4));
+        if (rms > maxEnergy) maxEnergy = rms;
+        let zcr = zeroCross / (chunkSize / 4);
+
+        rawFrames.push({ rms, zcr });
+      }
+
+      // Smooth audio features to prevent kinks during speech pauses
+      audioFrames = [];
+      const windowSize = 8;
+      for (let i = 0; i < samples; i++) {
+        let sumRms = 0, sumZcr = 0, count = 0;
+        for (let w = -windowSize; w <= windowSize; w++) {
+          let idx = Math.min(Math.max(i + w, 0), samples - 1);
+          sumRms += rawFrames[idx].rms;
+          sumZcr += rawFrames[idx].zcr;
+          count++;
+        }
+        audioFrames.push({
+          rms: (sumRms / count) / maxEnergy,
+          zcr: sumZcr / count
+        });
+      }
+
+      csvPoints = null;
+      document.getElementById('statusMsg').innerText = "Audio Processed! Adjust controls below.";
+      rebuildSculpture();
+    }
+
+    // --- 4. File Input Parsing ---
+    document.getElementById('fileInput').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const ext = file.name.split('.').pop().toLowerCase();
+      if (ext === 'csv') {
+        document.getElementById('statusMsg').innerText = "Parsing CSV...";
+        Papa.parse(file, {
+          header: true, dynamicTyping: true, skipEmptyLines: true,
+          complete: function(results) {
+            csvPoints = [];
+            results.data.forEach(row => {
+              if (row.x !== undefined && row.y !== undefined && row.z !== undefined) {
+                csvPoints.push(new THREE.Vector3(row.x, row.y, row.z));
+              }
+            });
+            audioFrames = null;
+            document.getElementById('statusMsg').innerText = `CSV Loaded! (${csvPoints.length} points)`;
+            rebuildSculpture();
+          }
+        });
+      } else {
+        processAudioFile(file);
+      }
+    });
+
+    // --- 5. Harmonic Torus-Knot Space Curve Engine ---
+    function generatePointsFromControls() {
+      let pts = [];
+      const targetNodes = parseInt(document.getElementById('pathLength').value);
+      const isClosed = document.getElementById('isClosedLoop').checked;
+
+      const freqScale = parseFloat(document.getElementById('freqScale').value);
+      const pitchScale = parseFloat(document.getElementById('pitchScale').value);
+      const ampScale = parseFloat(document.getElementById('ampScale').value);
+      const asymmetry = parseFloat(document.getElementById('asymmetry').value);
+
+      // Material outer clearance calculation for self-avoidance
+      const profile = document.getElementById('profileType').value;
+      let outerExtentInches = 3.5;
+      if (profile === 'square') {
+        const w = parseFloat(document.getElementById('rectWidth').value);
+        const h = parseFloat(document.getElementById('rectHeight').value);
+        outerExtentInches = Math.max(w, h) / 2.0;
+      } else {
+        const idInches = parseFloat(document.getElementById('matSize').value);
+        outerExtentInches = (idInches + 1.0) / 2.0;
+      }
+      const minClearanceFeet = (outerExtentInches * 2.0) / 12.0 * 1.05;
+
+      if (csvPoints && csvPoints.length > 0) {
+        const rawSlice = csvPoints.slice(0, Math.min(targetNodes, csvPoints.length));
+        for (let i = 0; i < rawSlice.length; i++) {
+          pts.push(rawSlice[i].clone());
+        }
+      } else if (audioFrames) {
+        // Torus Knot Harmonic Parameters
+        const p = Math.max(1, Math.round(2.0 * freqScale));
+        const q = Math.max(1, Math.round(3.0 * freqScale));
+
+        // SINGLE 2*PI DOMAIN prevents double-line path duplication
+        for (let i = 0; i < targetNodes; i++) {
+          let u = i / (targetNodes - (isClosed ? 0 : 1));
+          let theta = u * Math.PI * 2; 
+
+          let frameIdx = Math.min(Math.floor(u * audioFrames.length), audioFrames.length - 1);
+          let f = audioFrames[frameIdx] || { rms: 0.5, zcr: 0.5 };
+
+          let rmsEnv = 0.35 + 0.65 * f.rms;
+          let zcrEnv = 0.35 + 0.65 * f.zcr;
+
+          let R = 8.5 * ampScale * rmsEnv; 
+          let r = 4.5 * asymmetry * zcrEnv; 
+          let h = 5.0 * pitchScale * (0.4 + 0.6 * rmsEnv); 
+
+          // Harmonic Coordinate Formulation
+          let x = (R + r * Math.cos(q * theta)) * Math.cos(p * theta);
+          let z = (R + r * Math.cos(q * theta)) * Math.sin(p * theta);
+          let y = h * Math.sin(q * theta) + 2.0 * Math.sin(3 * theta * pitchScale) * zcrEnv;
+
+          // Cursive Audio Modulation
+          x += 2.2 * Math.sin(5 * theta + f.rms * Math.PI) * asymmetry;
+          z += 2.2 * Math.cos(4 * theta + f.zcr * Math.PI) * asymmetry;
+          y += 1.8 * Math.cos(2 * theta + f.rms * Math.PI * 2) * pitchScale;
+
+          pts.push(new THREE.Vector3(x, y, z));
+        }
+
+        // Apply Dynamic Collision Avoidance (Self-Repelling)
+        const skipBuffer = Math.max(15, Math.floor(targetNodes * 0.05));
+        for (let i = skipBuffer; i < pts.length; i++) {
+          for (let j = 0; j < i - skipBuffer; j++) {
+            let dist = pts[i].distanceTo(pts[j]);
+            if (dist < minClearanceFeet && dist > 0.0001) {
+              let repelDir = new THREE.Vector3().subVectors(pts[i], pts[j]).normalize();
+              let overlap = minClearanceFeet - dist;
+              pts[i].addScaledVector(repelDir, overlap * 0.7);
+            }
+          }
+        }
+      }
+
+      return pts;
+    }
+
+    // --- 6. Gaussian Spatial Smoothing (Removes Micro-Kinks Without Collapsing Volume) ---
+    function smoothPointsSpatial(points, passes, isClosed) {
+      if (passes <= 0 || points.length < 3) return points;
+      let current = points.map(p => p.clone());
+      const n = current.length;
+
+      for (let pass = 0; pass < passes; pass++) {
+        let temp = [];
+        for (let i = 0; i < n; i++) {
+          let prev = current[(i - 1 + n) % n];
+          let curr = current[i];
+          let next = current[(i + 1) % n];
+
+          if (!isClosed && (i === 0 || i === n - 1)) {
+            temp.push(curr.clone());
+            continue;
+          }
+
+          // Weighted 3-point Gaussian average
+          let sm = new THREE.Vector3()
+            .addScaledVector(prev, 0.25)
+            .addScaledVector(curr, 0.50)
+            .addScaledVector(next, 0.25);
+
+          temp.push(sm);
+        }
+        current = temp;
+      }
+      return current;
+    }
+
+    // --- 7. Flat-Faced Rectangular Beam Generator ---
+    function createRectangularTubeGeometry(curve, widthFt, heightFt, tubularSegments, closed, isMobius) {
+      const geometry = new THREE.BufferGeometry();
+      const vertices = [];
+      const normals = [];
+      const uvs = [];
+      const indices = [];
+
+      const frames = curve.computeFrenetFrames(tubularSegments, closed);
+      const hw = widthFt / 2;
+      const hh = heightFt / 2;
+
+      let vertIdx = 0;
+
+      for (let i = 0; i < tubularSegments; i++) {
+        const u1 = i / tubularSegments;
+        const u2 = (i + 1) / tubularSegments;
+
+        const pt1 = curve.getPointAt(u1);
+        const pt2 = curve.getPointAt(u2);
+
+        const N1 = frames.normals[i].clone();
+        const B1 = frames.binormals[i].clone();
+        const T1 = frames.tangents[i].clone();
+
+        const N2 = frames.normals[(i + 1) % (tubularSegments + 1)].clone();
+        const B2 = frames.binormals[(i + 1) % (tubularSegments + 1)].clone();
+        const T2 = frames.tangents[(i + 1) % (tubularSegments + 1)].clone();
+
+        if (isMobius && closed) {
+          N1.applyAxisAngle(T1, Math.PI * u1);
+          B1.applyAxisAngle(T1, Math.PI * u1);
+          N2.applyAxisAngle(T2, Math.PI * u2);
+          B2.applyAxisAngle(T2, Math.PI * u2);
+        }
+
+        const cornersLocal = [
+          { c1: [-hw, -hh], c2: [ hw, -hh], norm1: B1.clone().negate(), norm2: B2.clone().negate() },
+          { c1: [ hw, -hh], c2: [ hw,  hh], norm1: N1.clone(),          norm2: N2.clone()          },
+          { c1: [ hw,  hh], c2: [-hw,  hh], norm1: B1.clone(),          norm2: B2.clone()          },
+          { c1: [-hw,  hh], c2: [-hw, -hh], norm1: N1.clone().negate(), norm2: N2.clone().negate() }
+        ];
+
+        for (let f = 0; f < 4; f++) {
+          const face = cornersLocal[f];
+
+          const v0 = pt1.clone().addScaledVector(N1, face.c1[0]).addScaledVector(B1, face.c1[1]);
+          const v1 = pt1.clone().addScaledVector(N1, face.c2[0]).addScaledVector(B1, face.c2[1]);
+          const v2 = pt2.clone().addScaledVector(N2, face.c2[0]).addScaledVector(B2, face.c2[1]);
+          const v3 = pt2.clone().addScaledVector(N2, face.c1[0]).addScaledVector(B1, face.c1[1]);
+
+          vertices.push(v0.x, v0.y, v0.z,  v1.x, v1.y, v1.z,  v2.x, v2.y, v2.z,  v3.x, v3.y, v3.z);
+
+          normals.push(
+            face.norm1.x, face.norm1.y, face.norm1.z,
+            face.norm1.x, face.norm1.y, face.norm1.z,
+            face.norm2.x, face.norm2.y, face.norm2.z,
+            face.norm2.x, face.norm2.y, face.norm2.z
+          );
+
+          uvs.push(0, u1,  1, u1,  1, u2,  0, u2);
+
+          indices.push(vertIdx, vertIdx + 1, vertIdx + 2);
+          indices.push(vertIdx, vertIdx + 2, vertIdx + 3);
+
+          vertIdx += 4;
+        }
+      }
+
+      if (!closed) {
+        const pt0 = curve.getPointAt(0);
+        const N0 = frames.normals[0];
+        const B0 = frames.binormals[0];
+        const capNorm0 = frames.tangents[0].clone().negate();
+
+        const c0 = pt0.clone().addScaledVector(N0, -hw).addScaledVector(B0, -hh);
+        const c1 = pt0.clone().addScaledVector(N0,  hw).addScaledVector(B0, -hh);
+        const c2 = pt0.clone().addScaledVector(N0,  hw).addScaledVector(B0,  hh);
+        const c3 = pt0.clone().addScaledVector(N0, -hw).addScaledVector(B0,  hh);
+
+        vertices.push(c0.x, c0.y, c0.z, c1.x, c1.y, c1.z, c2.x, c2.y, c2.z, c3.x, c3.y, c3.z);
+        for(let k = 0; k < 4; k++) normals.push(capNorm0.x, capNorm0.y, capNorm0.z);
+        uvs.push(0, 0, 1, 0, 1, 1, 0, 1);
+        indices.push(vertIdx, vertIdx + 1, vertIdx + 2);
+        indices.push(vertIdx, vertIdx + 2, vertIdx + 3);
+        vertIdx += 4;
+
+        const ptEnd = curve.getPointAt(1);
+        const NE = frames.normals[tubularSegments];
+        const BE = frames.binormals[tubularSegments];
+        const capNormE = frames.tangents[tubularSegments].clone();
+
+        const e0 = ptEnd.clone().addScaledVector(NE, -hw).addScaledVector(BE, -hh);
+        const e1 = ptEnd.clone().addScaledVector(NE,  hw).addScaledVector(BE, -hh);
+        const e2 = ptEnd.clone().addScaledVector(NE,  hw).addScaledVector(BE,  hh);
+        const e3 = ptEnd.clone().addScaledVector(NE, -hw).addScaledVector(BE,  hh);
+
+        vertices.push(e0.x, e0.y, e0.z, e1.x, e1.y, e1.z, e2.x, e2.y, e2.z, e3.x, e3.y, e3.z);
+        for(let k = 0; k < 4; k++) normals.push(capNormE.x, capNormE.y, capNormE.z);
+        uvs.push(0, 0, 1, 0, 1, 1, 0, 1);
+        indices.push(vertIdx, vertIdx + 2, vertIdx + 1);
+        indices.push(vertIdx, vertIdx + 3, vertIdx + 2);
+        vertIdx += 4;
+      }
+
+      geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+      geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+      geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+      geometry.setIndex(indices);
+
+      return geometry;
+    }
+
+    // --- 8. Bend Radius Calculation (Menger Curvature) ---
+    function getBendRadius(p1, p2, p3) {
+      const a = p1.distanceTo(p2);
+      const b = p2.distanceTo(p3);
+      const c = p3.distanceTo(p1);
+
+      const v1 = new THREE.Vector3().subVectors(p2, p1);
+      const v2 = new THREE.Vector3().subVectors(p3, p1);
+      const cross = new THREE.Vector3().crossVectors(v1, v2);
+      const area = 0.5 * cross.length();
+
+      if (area < 0.00001) return 99999;
+      return (a * b * c) / (4.0 * area);
+    }
+
+    function analyzePathKinks(curve, totalLengthFeet, minCenterlineRadFeet) {
+      const numSamples = Math.max(50, Math.ceil(totalLengthFeet * 6.5));
+      const macroPoints = curve.getSpacedPoints(numSamples);
+      const macroKinks = new Array(numSamples + 1).fill(false);
+
+      for (let k = 1; k < numSamples; k++) {
+        let rCalc = getBendRadius(macroPoints[k-1], macroPoints[k], macroPoints[k+1]);
+        if (rCalc < minCenterlineRadFeet) {
+          macroKinks[k] = true;
+        }
+      }
+
+      if (curve.closed && numSamples > 2) {
+        let rJoint = getBendRadius(macroPoints[numSamples - 1], macroPoints[0], macroPoints[1]);
+        if (rJoint < minCenterlineRadFeet) {
+          macroKinks[0] = true;
+          macroKinks[numSamples] = true;
+        }
+      }
+
+      return { numSamples, macroKinks };
+    }
+
+    // --- 9. Main Geometry Generator ---
+    function rebuildSculpture() {
+      const rawPoints = generatePointsFromControls();
+      if (!rawPoints.length) return;
+
+      if (currentMeshGroup) scene.remove(currentMeshGroup);
+
+      currentMeshGroup = new THREE.Group();
+
+      const smoothPasses = parseInt(document.getElementById('smoothAmount').value);
+      const profile = document.getElementById('profileType').value;
+      
+      let minInsideRadiusInches = 9.0;
+      let outerExtentInches = 3.5;
+
+      if (profile === 'square') {
+        const w = parseFloat(document.getElementById('rectWidth').value);
+        const h = parseFloat(document.getElementById('rectHeight').value);
+        const maxDim = Math.max(w, h);
+        minInsideRadiusInches = maxDim * 1.5;
+        outerExtentInches = maxDim / 2.0;
+      } else {
+        const idInches = parseFloat(document.getElementById('matSize').value);
+        const odInches = idInches + 1.0;
+        minInsideRadiusInches = idInches * 1.5;
+        outerExtentInches = odInches / 2.0;
+      }
+
+      const minCenterlineRadiusInches = minInsideRadiusInches + outerExtentInches;
+      const minCenterlineRadFeet = minCenterlineRadiusInches / 12.0;
+
+      document.getElementById('autoRadVal').innerText = `${minInsideRadiusInches.toFixed(1)}" (Centerline: ${minCenterlineRadiusInches.toFixed(1)}")`;
+
+      const highlightKinks = document.getElementById('showKinks').checked;
+      const isClosed = document.getElementById('isClosedLoop').checked;
+      const isMobius = isClosed && profile === 'square' && document.getElementById('isMobius').checked;
+      const colorHex = document.getElementById('matColor').value;
+
+      // Apply Spatial Smoothing (preserves macro loop dimensions)
+      let smoothed = smoothPointsSpatial(rawPoints, smoothPasses, isClosed);
+
+      if (smoothed.length < 3) return;
+
+      const curve = new THREE.CatmullRomCurve3(smoothed, isClosed, 'centripetal', 0.25);
+      curve.arcLengthDivisions = Math.max(3000, smoothed.length * 20);
+
+      const totalLengthFeet = curve.getLength();
+      document.getElementById('archLengthVal').innerText = formatArchitecturalLength(totalLengthFeet);
+
+      let outerRadiusFeet = outerExtentInches / 12.0;
+      let tubularSegments = Math.max(smoothed.length * 12, 1000);
+      const radialSegments = 24;
+      let geometry;
+
+      if (profile === 'square') {
+        const wFeet = parseFloat(document.getElementById('rectWidth').value) / 12.0;
+        const hFeet = parseFloat(document.getElementById('rectHeight').value) / 12.0;
+        geometry = createRectangularTubeGeometry(curve, wFeet, hFeet, tubularSegments, isClosed, isMobius);
+      } else {
+        const pitchFeet = Math.max(0.035, outerRadiusFeet * 0.16);
+        const ridgesPerFoot = 1.0 / pitchFeet;
+
+        if (profile === 'corrugated') {
+          tubularSegments = Math.max(smoothed.length * 12, Math.ceil(totalLengthFeet * ridgesPerFoot * 8));
+        }
+
+        geometry = new THREE.TubeGeometry(curve, tubularSegments, outerRadiusFeet, radialSegments, isClosed);
+
+        if (profile === 'corrugated') {
+          const pos = geometry.attributes.position;
+          const normal = geometry.attributes.normal;
+          const ridgeDepth = outerRadiusFeet * 0.032;
+
+          for (let i = 0; i < pos.count; i++) {
+            let ringIdx = Math.floor(i / (radialSegments + 1));
+            let u = ringIdx / tubularSegments;
+            let distFeet = u * totalLengthFeet;
+
+            let ringDisplacement = Math.sin(distFeet * ridgesPerFoot * Math.PI * 2) * ridgeDepth;
+
+            pos.setXYZ(
+              i,
+              pos.getX(i) + normal.getX(i) * ringDisplacement,
+              pos.getY(i) + normal.getY(i) * ringDisplacement,
+              pos.getZ(i) + normal.getZ(i) * ringDisplacement
+            );
+          }
+          geometry.computeVertexNormals();
+        }
+      }
+
+      const { numSamples, macroKinks } = analyzePathKinks(curve, totalLengthFeet, minCenterlineRadFeet);
+
+      const baseColor = new THREE.Color(colorHex);
+      const kinkColor = new THREE.Color(0xd97706);
+      const colors = [];
+
+      const posAttr = geometry.attributes.position;
+
+      if (profile === 'square') {
+        for (let i = 0; i < posAttr.count; i++) {
+          let segIdx = Math.floor(i / 16);
+          let u = segIdx / tubularSegments;
+          let macroIdx = Math.min(Math.round(u * numSamples), numSamples);
+
+          if (highlightKinks && macroKinks[macroIdx]) {
+            colors.push(kinkColor.r, kinkColor.g, kinkColor.b);
+          } else {
+            colors.push(baseColor.r, baseColor.g, baseColor.b);
+          }
+        }
+      } else {
+        const verticesPerRing = radialSegments + 1;
+        for (let i = 0; i < posAttr.count; i++) {
+          let ringIdx = Math.floor(i / verticesPerRing);
+          let u = ringIdx / tubularSegments;
+          let macroIdx = Math.min(Math.round(u * numSamples), numSamples);
+
+          if (highlightKinks && macroKinks[macroIdx]) {
+            colors.push(kinkColor.r, kinkColor.g, kinkColor.b);
+          } else {
+            colors.push(baseColor.r, baseColor.g, baseColor.b);
+          }
+        }
+      }
+
+      geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+
+      const material = new THREE.MeshStandardMaterial({
+        vertexColors: true,
+        roughness: profile === 'square' ? 0.55 : 0.35,
+        metalness: 0.05
+      });
+
+      const tubeMesh = new THREE.Mesh(geometry, material);
+      currentMeshGroup.add(tubeMesh);
+
+      let startCap = null;
+      let endCap = null;
+
+      if (!isClosed && profile !== 'square') {
+        const capMaterial = new THREE.MeshStandardMaterial({
+          color: baseColor,
+          roughness: 0.35,
+          metalness: 0.1,
+          side: THREE.DoubleSide
+        });
+
+        const startPt = curve.getPointAt(0);
+        const startTangent = curve.getTangentAt(0);
+        const startCapGeo = new THREE.CircleGeometry(outerRadiusFeet, radialSegments);
+        startCap = new THREE.Mesh(startCapGeo, capMaterial);
+        startCap.position.copy(startPt);
+        startCap.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), startTangent.clone().negate().normalize());
+        currentMeshGroup.add(startCap);
+
+        const endPt = curve.getPointAt(1);
+        const endTangent = curve.getTangentAt(1);
+        const endCapGeo = new THREE.CircleGeometry(outerRadiusFeet, radialSegments);
+        endCap = new THREE.Mesh(endCapGeo, capMaterial);
+        endCap.position.copy(endPt);
+        endCap.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), endTangent.clone().normalize());
+        currentMeshGroup.add(endCap);
+      }
+
+      // --- AUTOMATIC CENTERING & GROUND PLANE ALIGNMENT (Y = 0) ---
+      const bbox = new THREE.Box3().setFromObject(currentMeshGroup);
+      const center = bbox.getCenter(new THREE.Vector3());
+      const minY = bbox.min.y;
+
+      if (isFinite(minY)) {
+        tubeMesh.geometry.translate(-center.x, -minY, -center.z);
+        if (startCap) {
+          startCap.position.x -= center.x;
+          startCap.position.z -= center.z;
+          startCap.position.y -= minY;
+        }
+        if (endCap) {
+          endCap.position.x -= center.x;
+          endCap.position.z -= center.z;
+          endCap.position.y -= minY;
+        }
+
+        curve.points.forEach(p => {
+          p.x -= center.x;
+          p.z -= center.z;
+          p.y -= minY;
+        });
+      }
+
+      scene.add(currentMeshGroup);
+    }
+
+    // --- 10. UI Event Listeners ---
+    function updateLoopVisibility() {
+      const isClosed = document.getElementById('isClosedLoop').checked;
+      const isRect = document.getElementById('profileType').value === 'square';
+
+      document.getElementById('loopOptionsGroup').style.display = isClosed ? 'block' : 'none';
+      document.getElementById('mobiusGroup').style.display = (isClosed && isRect) ? 'flex' : 'none';
+    }
+
+    document.getElementById('profileType').addEventListener('change', (e) => {
+      const isRect = e.target.value === 'square';
+      document.getElementById('roundSizeGroup').style.display = isRect ? 'none' : 'block';
+      document.getElementById('rectSizeGroup').style.display = isRect ? 'block' : 'none';
+
+      const matColorPicker = document.getElementById('matColor');
+      if (isRect) {
+        if (matColorPicker.value === '#60a5fa') {
+          matColorPicker.value = '#b48356';
+        }
+      } else {
+        if (matColorPicker.value === '#b48356') {
+          matColorPicker.value = '#60a5fa';
+        }
+      }
+
+      updateLoopVisibility();
+      rebuildSculpture();
+    });
+
+    document.getElementById('isClosedLoop').addEventListener('change', () => {
+      updateLoopVisibility();
+      rebuildSculpture();
+    });
+
+    document.getElementById('rectWidth').addEventListener('change', rebuildSculpture);
+    document.getElementById('rectHeight').addEventListener('change', rebuildSculpture);
+    document.getElementById('isMobius').addEventListener('change', rebuildSculpture);
+
+    document.getElementById('matSize').addEventListener('input', (e) => {
+      const idVal = parseFloat(e.target.value);
+      const odVal = idVal + 1.0;
+      document.getElementById('sizeVal').innerText = `${idVal.toFixed(1)}" (${odVal.toFixed(1)}" OD)`;
+      rebuildSculpture();
+    });
+
+    const listen = (id, disId, unit = '') => {
+      document.getElementById(id).addEventListener('input', (e) => {
+        if (disId) {
+          const val = parseFloat(e.target.value);
+          document.getElementById(disId).innerText = (isNaN(val) ? e.target.value : val.toFixed(2)) + unit;
+        }
+        rebuildSculpture();
+      });
+    };
+
+    listen('ampScale', 'ampVal', 'x');
+    listen('freqScale', 'freqVal', 'x');
+    listen('pitchScale', 'pitchVal', 'x');
+    listen('pathLength', 'lengthVal', ' pts');
+    listen('asymmetry', 'asymVal', '');
+    listen('smoothAmount', 'smoothVal', ' Passes');
+
+    document.getElementById('showKinks').addEventListener('change', rebuildSculpture);
+    document.getElementById('matColor').addEventListener('input', rebuildSculpture);
+
+    // --- RESET BUTTON FUNCTIONALITY ---
+    document.getElementById('resetBtn').addEventListener('click', () => {
+      document.getElementById('profileType').value = 'corrugated';
+      document.getElementById('matSize').value = '6.0';
+      document.getElementById('sizeVal').innerText = '6.0" (7.0" OD)';
+      document.getElementById('rectWidth').value = '6.0';
+      document.getElementById('rectHeight').value = '6.0';
+      document.getElementById('roundSizeGroup').style.display = 'block';
+      document.getElementById('rectSizeGroup').style.display = 'none';
+
+      document.getElementById('pathLength').value = 150;
+      document.getElementById('lengthVal').innerText = '150 pts';
+      document.getElementById('ampScale').value = 1.00;
+      document.getElementById('ampVal').innerText = '1.00x';
+      document.getElementById('freqScale').value = 1.5;
+      document.getElementById('freqVal').innerText = '1.5x';
+      document.getElementById('pitchScale').value = 1.0;
+      document.getElementById('pitchVal').innerText = '1.0x';
+      document.getElementById('asymmetry').value = 0.70;
+      document.getElementById('asymVal').innerText = '0.70';
+      document.getElementById('smoothAmount').value = 5;
+      document.getElementById('smoothVal').innerText = '5 Passes';
+
+      document.getElementById('isClosedLoop').checked = true;
+      document.getElementById('isMobius').checked = false;
+      document.getElementById('showKinks').checked = true;
+      document.getElementById('matColor').value = '#60a5fa';
+
+      updateLoopVisibility();
+      rebuildSculpture();
+    });
+
+    // --- 11. Cross-Browser Blob Downloader ---
+    function saveBlob(blob, filename) {
+      const link = document.createElement('a');
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.href = URL.createObjectURL(blob);
+      link.download = filename;
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+    }
+
+    // --- 12. Export Model Listeners ---
+    document.getElementById('exportGlb').addEventListener('click', () => {
+      if (!currentMeshGroup) return alert("Upload MP3 or CSV first!");
+
+      const btn = document.getElementById('exportGlb');
+      const origText = btn.innerText;
+      btn.innerText = "Exporting...";
+      document.getElementById('statusMsg').innerText = "Generating GLB model...";
+
+      setTimeout(() => {
+        try {
+          const exportScene = new THREE.Scene();
+          const exportGroup = currentMeshGroup.clone(true);
+          exportScene.add(exportGroup);
+          exportScene.updateMatrixWorld(true);
+
+          const exporter = new THREE.GLTFExporter();
+
+          exporter.parse(
+            exportScene,
+            function (result) {
+              if (result instanceof ArrayBuffer) {
+                saveBlob(new Blob([result], { type: 'model/gltf-binary' }), 'linework_model.glb');
+                document.getElementById('statusMsg').innerText = "Binary GLB Exported Successfully!";
+              } else {
+                const str = typeof result === 'string' ? result : JSON.stringify(result, null, 2);
+                saveBlob(new Blob([str], { type: 'application/json' }), 'linework_model.gltf');
+                document.getElementById('statusMsg').innerText = "glTF Exported Successfully!";
+              }
+              btn.innerText = origText;
+            },
+            { binary: true }
+          );
+        } catch (err) {
+          console.error("GLB Export Exception:", err);
+          document.getElementById('statusMsg').innerText = "GLB Export Failed.";
+          alert("GLB Export Error: " + err.message);
+          btn.innerText = origText;
+        }
+      }, 50);
+    });
+
+    document.getElementById('exportObj').addEventListener('click', () => {
+      if (!currentMeshGroup) return alert("Upload MP3 or CSV first!");
+      
+      const exportScene = new THREE.Scene();
+      const exportGroup = currentMeshGroup.clone(true);
+      exportScene.add(exportGroup);
+      
+      saveBlob(new Blob([new THREE.OBJExporter().parse(exportScene)], { type: 'text/plain' }), 'linework_model.obj');
+      document.getElementById('statusMsg').innerText = "OBJ Exported Successfully!";
+    });
+
+    document.getElementById('exportUsdz').addEventListener('click', async () => {
+      if (!currentMeshGroup) return alert("Upload MP3 or CSV first!");
+      
+      const btn = document.getElementById('exportUsdz');
+      const origText = btn.innerText;
+      btn.innerText = "Exporting...";
+      document.getElementById('statusMsg').innerText = "Generating USDZ model...";
+
+      try {
+        const exporter = new THREE.USDZExporter();
+        const exportScene = new THREE.Scene();
+        const exportGroup = currentMeshGroup.clone(true);
+
+        exportGroup.traverse((child) => {
+          if (child.isMesh && child.geometry && child.geometry.index) {
+            child.geometry = child.geometry.toNonIndexed();
+          }
+        });
+
+        exportScene.add(exportGroup);
+
+        const arrayBuffer = await exporter.parse(exportScene);
+        saveBlob(new Blob([arrayBuffer], { type: 'model/vnd.usdz+zip' }), 'linework_model.usdz');
+        document.getElementById('statusMsg').innerText = "USDZ Exported Successfully!";
+      } catch (err) {
+        console.error("USDZ Export Error:", err);
+        document.getElementById('statusMsg').innerText = "USDZ Export Failed.";
+        alert("USDZ Export Error: " + err.message);
+      } finally {
+        btn.innerText = origText;
+      }
+    });
+
+    // --- 13. Initial Build & Render Loop ---
+    updateLoopVisibility();
+    rebuildSculpture();
+
+    function animate() {
+      requestAnimationFrame(animate);
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+  </script>
+</body>
+</html>
